@@ -1,0 +1,221 @@
+---
+title: "Senate Age"
+format: html
+editor: visual
+---
+
+## Setup:
+
+```{r initial-setup, include=FALSE, warning=FALSE}
+setwd("C:/Users/SZafar/Documents/Github/graphs/politicians/senate")
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, rvest, stringr, lubridate, RCurl, extrafont, janitor, magrittr, urltools, scales, ggrepel, purrr, memoise, waffle)
+```
+
+## Original data:
+
+![Chart showing generation spread for each year of the senate](original.png "Original image from datawrapper.de")
+
+## Scrape by year:
+
+```{r}
+election_years <- seq(from = 70, to = 119, by = 1)
+
+for (term in election_years) {
+    print(paste("Election year:", term))
+  
+    url <- paste0("https://en.wikipedia.org/wiki/List_of_United_States_senators_in_the_",
+                  ordinal(term), 
+                  "_Congress") 
+    
+    webpage <- read_html(url)
+    
+    table <- webpage %>% 
+      html_nodes('.wikitable') %>% 
+      html_table()
+    
+    assign(paste0("senate_", term), 
+       as.data.frame(table[[2]]) %>% 
+         clean_names %>% 
+         rename_with(~ "senator", (starts_with("senator"))) %>% 
+         rename(rank = any_of(c("currentrank")))  %>% 
+         filter(!is.na(rank)) %>% 
+         filter(rank != "—" & rank != "-" & rank != " ") %>% 
+         mutate(senator = str_remove_all(senator, "\\s*[\\[\\(\\{].*?[\\]\\)\\}]")) %>% 
+         select(any_of(c('senator', 'party', 'state', 
+                         'seniority_date'))) %>% 
+         mutate(term = term) 
+          )
+}
+
+senate_82 <- senate_82 %>% head(96)
+```
+
+## Define DOB function:
+
+```{r}
+get_dob <- function(link) {
+  url <- paste0('https://en.wikipedia.org', link)
+  if (url.exists(url) == 0) {
+    warning(paste("No url found for", link))
+    return(NA)
+  }
+  
+  page <- read_html(URLencode(url))
+  
+  infobox <- page %>%
+    html_nodes(".infobox")
+  
+  if (length(infobox) == 0) {
+        warning(paste("No infobox found for", link))
+        return(NA) # Return NA if still no infobox is found
+  }
+  
+  # Extract the table from the infobox.
+  # html_table() returns a list of data frames, usually one for the main infobox.
+  infobox_tables <- infobox %>%
+    html_table()
+  
+  # Check if any tables were extracted
+  if (length(infobox_tables) == 0) {
+    warning(paste("No table found within infobox for", link))
+    return(NA)
+  }
+  
+  # Assuming the first table in the infobox_tables list is the one we want
+  
+  x <- c(infobox_tables[[1]][1], infobox_tables[[1]][2])
+  
+  infobox_df <- as.data.frame(setNames(x, c("Category", "Info"))) %>% 
+    filter(Category == "Born") %>% 
+    select(Info)
+  
+  if (count(infobox_df) == 0) {
+     return(NA)
+  }
+  
+  date_pattern <- "\\(\\d{4}-\\d{2}-\\d{2}\\)"
+  
+  dob <- str_extract(infobox_df$Info, date_pattern) %>%
+    str_remove_all("[\\(\\)]")
+  
+  return(dob)
+}
+
+get_dob("/wiki/Dick_Durbin")
+```
+
+## Binding:
+
+```{r, warning=FALSE}
+object_names <- ls()
+
+# Filter to those matching "senate_1" or "senate_2"
+senate_names <- object_names[grepl("senate_1|senate_7|senate_8|senate_9",
+                                   object_names)]
+
+# Retrieve the actual data frames as a named list
+senate_dfs <- mget(senate_names, envir = .GlobalEnv)
+
+# Bind them together
+senate_all <- bind_rows(senate_dfs)
+```
+
+```{r}
+senate_all <- senate_all %>% 
+  rowwise() %>% 
+    mutate(senator = gsub(")", "", senator),
+           state2 = gsub(" ", "_", state)) %>% 
+  ungroup() %>% 
+  mutate(link = paste0("/wiki/", gsub(" ", "_", senator)),
+         link2 = paste0(link, "_(politician)"),
+         link3 = paste0(link, "_(American_politician)"),
+         link4 = ifelse(!is.na(state), 
+                  paste0(link, "_(",
+                  state2,
+                  "_politician)"),
+                  NA)) 
+```
+
+## Get DOB:
+
+```{r, warning=FALSE}
+get_dob_memo <- memoise(get_dob)
+
+senate_all_dob <- senate_all %>%
+    rowwise() %>%
+        mutate(dob = get_dob_memo(link)) %>%
+        mutate(dob = ifelse(is.na(dob),
+                            get_dob_memo(link2),
+                            dob)) %>% 
+        mutate(dob = ifelse(is.na(dob),
+                            get_dob_memo(link3),
+                            dob)) %>% 
+        mutate(dob = ifelse(is.na(dob),
+                            get_dob_memo(link4),
+                            dob)) %>% 
+    ungroup()
+```
+
+## Final DOB:
+
+```{r}
+# senate_all_dob %>% filter(is.na(dob)) %>% view()
+
+senate_all_dob <- senate_all_dob %>% 
+  mutate(dob = case_when(
+    senator == "Dan Sullivan" & seniority_date == "January 3, 2015" ~ "1964-11-13",
+    senator == "Jack Reed" & seniority_date == "January 3, 1997" ~ "1949-11-12",
+    senator == "Tim Johnson" & seniority_date == "January 3, 1997" ~ "1946-12-28", 
+    senator == "Bob Smith" & seniority_date == "December 7, 1990" ~ "1941-03-30", 
+    senator == "Arlen Specter-PA" & seniority_date == "January 3, 1981" ~ "1930-02-12", 
+    senator == "Jim Bunning" ~ "1931-10-23", 
+    senator == "Allen J. Ellender" ~ "1890-09-24",
+    senator == "Andrew F. Schoeppel" ~ "1894-11-23",
+    senator == "Ben Jordan" ~ "1896-09-08",
+    senator == "Clinton Anderson" ~ "1895-11-11",
+    senator == "Edward Martin" ~ "1879-09-18",
+    senator == "Edwin C. Johnson" ~ "1884-01-01",
+    senator == "Howard A. Smith" ~ "1883-02-02",
+    senator == "James Allen" & seniority_date == "January 3, 1969" ~ "1912-12-28",
+    senator == "James Boggs" ~ "1909-05-15",
+    senator == "James Murray" & seniority_date == "November 7, 1934" ~ "1876-05-03",
+    senator == "John Little McClellan" ~ "1896-02-25",
+    senator == "John M. Butler" ~ "1897-07-21",
+    senator == "Joseph Frear Jr." ~ "1903-03-07",
+    senator == "Paul Douglas" ~ "1892-03-26",
+    senator == "Stephen Young" ~ "1889-05-04",
+    senator == "Thomas Martin" ~ "1847-07-29",
+    senator == "Wallace F. Bennett" ~ "1898-11-13",
+    senator == "William A. Blakley" ~ "1898-11-17",
+    senator == "William E. Jenner" ~ "1908-07-21",
+    senator == "John Durkin" ~ "1936-03-29",
+    senator == "Roger Jepsen" ~ "1928-12-23",
+    senator == "John Kennedy" & seniority_date == "January 3, 2017" ~ "1951-11-21",
+    senator == "A. Harry Moore" ~ "1877-07-03",
+    senator == "Albert B. Chandler" ~ "1898-07-14",
+    senator == "Arthur Robinson" ~ "1881-03-12",
+    senator == "Charles O. Andrews" ~ "1877-03-07",
+    senator == "Charles S. Deneen" ~ "1863-05-04",
+    senator == "Coleman L. Blease" ~ "1868-08-08",
+    senator == "Daniel Hastings" ~ "1874-03-05",
+    senator == "Duncan U. Fletcher" ~ "1859-01-06",
+    senator == "Edward Costigan" ~ "1874-07-01",
+    senator == "George McGill" ~ "1879-02-12",
+    senator == "Henry F. Ashurst" ~ "1874-09-13",
+    senator == "Hiram Bingham" ~ "1875-11-19",
+    senator == "James Pope" ~ "1884-03-31",
+    senator == "John E. Erickson" ~ "1863-03-14",
+    senator == "John H. Bankhead II" ~ "1872-07-08",
+    senator == "John Thomas" ~ "1874-01-04",
+    senator == "Joseph Robinson" ~ "1872-08-26",
+    senator == "Raymond E. Willis" ~ "1875-08-11",
+    senator == "Rush D. Holt" ~ "1905-06-19",
+    senator == "Wesley Jones" ~ "1863-08-09",
+    TRUE ~ as.character(dob)
+  )) %>% 
+  select(senator, seniority_date, term, party, state, dob)
+
+write.csv(senate_all_dob, "senate_all.csv")
+```

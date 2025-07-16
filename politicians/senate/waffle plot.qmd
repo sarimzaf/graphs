@@ -1,0 +1,152 @@
+---
+title: "Senate age - waffle chart"
+format: html
+editor: visual
+---
+
+## Setup:
+
+```{r initial-setup, include=FALSE, warning=FALSE}
+setwd("C:/Users/SZafar/Documents/Github/graphs/politicians/senate")  
+
+if (!require("pacman")) install.packages("pacman") 
+pacman::p_load(tidyverse, stringr, lubridate, extrafont, janitor, 
+               scales, ggrepel, purrr, memoise, waffle, showtext, ggtext)
+
+font_add_google("Libre Franklin", "franklin")
+font_add_google("Playfair Display", "playfair")
+showtext_opts(dpi = 400)
+showtext_auto
+```
+
+## Read data:
+
+```{r, warning=FALSE}
+senate_all_dob <- read.csv("senate_all.csv", header=TRUE) %>% 
+  filter(term >= 74)
+```
+
+## Generations:
+
+```{r generations, warning = FALSE}
+  
+senate_all_dob <- senate_all_dob %>% 
+  mutate(birth_year = as.numeric(str_extract(dob, "\\d{4}")))
+
+# https://en.wikiversity.org/wiki/Generations (probable)
+senate_all_dob <- senate_all_dob %>% 
+  mutate(generation = case_when(
+    birth_year >= 1822 & birth_year <= 1842 ~ "Gilded",
+    birth_year >= 1843 & birth_year <= 1859 ~ "Progressive",
+    birth_year >= 1860 & birth_year <= 1882 ~ "Missionary",
+    birth_year >= 1883 & birth_year <= 1900 ~ "Lost",
+    birth_year >= 1901 & birth_year <= 1924 ~ "G.I.",
+    birth_year >= 1925 & birth_year <= 1945 ~ "Silent",
+    birth_year >= 1946 & birth_year <= 1964 ~ "Baby Boomer",
+    birth_year >= 1965 & birth_year <= 1980 ~ "Gen X",
+    birth_year >= 1981 & birth_year <= 1996 ~ "Millennial",
+    birth_year >= 1997 & birth_year <= 2009 ~ "Gen Z",
+    TRUE ~ NA
+  )) 
+```
+
+## Final version:
+
+```{r plot-data, warning=FALSE}
+plot_data <- senate_all_dob %>% 
+  group_by(term, generation) %>% 
+  summarise(count = n()) %>% 
+  mutate(generation = ifelse(is.na(generation), "Unknown", generation)) %>% 
+  mutate(generation = factor(generation, 
+                             levels = c("Progressive", "Missionary", 
+                                        "Lost", "G.I.", "Silent", 
+                                        "Baby Boomer", "Gen X", 
+                                        "Millennial", "Unknown"))
+       ) %>% 
+  mutate(election_year = 1947 + (2 * (term - 80))) %>% 
+  arrange(election_year, desc(generation)) 
+
+
+#plot_data %>% group_by(term) %>% summarise(total = sum(count)) %>% view()
+```
+
+## Waffle plot:
+
+```{r}
+colors <- c(
+  "Progressive" = "#75280B", "Missionary" = "#4E78A7",
+  "Lost" = "#F28E2C", "G.I." = "#77B4B4",
+  "Silent" = "#5BA150", "Baby Boomer" = "#EEC846",
+  "Gen X" = "#B079A0", "Millennial" = "#FF9BA8"
+  )
+
+my_title <- "Which Generation Controls the Senate?"
+my_subtitle <- "Each tile represents a single US senator."
+my_caption <- "Chart: Sarim Zafar. \n Source: Data scraped from Wikipedia"
+```
+
+```{r , warning=FALSE}
+ggplot(plot_data, aes(fill = generation, values = count)) +
+  geom_waffle(n_rows = 100, size = 0.6, color = "white") +
+  facet_wrap(
+    ~election_year,
+    nrow = 1,
+    strip.position = "bottom",
+    scales = "free_x"
+  ) +
+  guides(fill = guide_legend(nrow = 1)) +
+  scale_fill_manual(values = colors) +
+  # labels and annotate
+  labs(
+    title = my_title,
+    subtitle = my_subtitle,
+    fill = "Generation",
+    y = "US Senators"
+  ) +
+  # theme stuff
+  theme_minimal(base_size = 12, base_family = "playfair") +
+  theme_enhance_waffle() +
+  theme(
+    plot.margin = margin(0, 0, 0, 40),
+    # strip
+    panel.spacing = unit(0, "pt"),  # remove space between facets
+    strip.placement = "outside",
+    strip.switch.pad.grid = unit(-30, "pt"),  # remove padding around strips
+    strip.switch.pad.wrap = unit(-30, "pt"),
+    strip.text.x.bottom = element_text(size = 10, colour = "black", 
+                                       angle = 45, family = "Serif", 
+                                       margin(-4, 0, 0, 0)),
+    # axes
+    axis.title.y = element_text(
+      angle = 90,
+      size = 10
+    ),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    # legend
+    legend.title=element_blank(),
+    legend.position = "top",
+    legend.direction = "horizontal",
+    legend.box.spacing = unit(-20, "pt"),
+    legend.text = element_text(size = 12, family = "Serif"),
+    # title + caption
+    plot.title = element_markdown(size = 26, hjust = 0.5, 
+                                  family = "Serif",
+                                  face = "bold", margin = margin(t = 2)),
+    plot.subtitle = element_text(size = 13, hjust = 0.5, 
+                                 family = "Serif", color = "gray20", 
+                                margin = margin(t = 5)),
+    plot.caption = element_text(size = 10, family = "Serif", 
+                                margin = margin(t = 15), color = "gray45"),
+    plot.caption.position = "panel",
+  ) 
+# +
+#   coord_cartesian(expand = FALSE, clip = "off",
+#                   xlim = c(0.5, 18.5),
+#                   ylim = c(25.5, 0.5)
+#                   )
+
+
+ggsave("waffle2.png", width = 11, height = 10, dpi = 400)
+```
