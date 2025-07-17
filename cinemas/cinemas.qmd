@@ -1,0 +1,67 @@
+---
+title: "cinemas"
+format: html
+editor: visual
+---
+
+## Setup:
+
+```{r, warning=FALSE, include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(sf, tidyverse, maps, showtext, glue)
+
+setwd("C:/Users/sarim/Documents/Github/graphs/cinemas")
+
+font_add_google("Roboto slab", family = "roboto-slab")
+font_add_google("Montserrat", family = "montserrat")
+
+showtext_auto()
+showtext_opts(dpi = 300)
+```
+
+## Data:
+
+```{r, warning=FALSE, include=FALSE}
+
+# source: https://databrowser.uis.unesco.org/browser/CULTURE/UIS-SDG11Monitoring/thematic/culfac
+raw <- read.csv("data.csv", 
+         header = TRUE)
+
+world <- st_read("world-administrative-boundaries/world-administrative-boundaries.shp")
+
+# world_map <- map_data("world")
+```
+
+## Prepare data:
+
+```{r}
+cinemas <- raw %>% 
+  arrange(geoUnit, year) %>% 
+  group_by(geoUnit) %>% 
+  summarise_all(last)
+
+cinema_map <- world %>%
+  left_join(cinemas, by = c("iso3" = "geoUnit"))
+
+```
+
+## Plot:
+
+```{r, warning=FALSE}
+
+ggplot(data = world_map,
+       aes(x = long, y = lat, map_id = region)) +
+  geom_map(map = world_map, fill = NA, color = "black") +
+  coord_fixed() +
+  theme(
+      panel.background = element_rect(fill="white"),
+      plot.background = element_rect(fill="white"),
+      axis.title = element_blank()
+       )
+  
+```
+
+```{r}
+ggplot(cinema_map) +
+  geom_sf(aes(fill = value), color = "white") 
+```

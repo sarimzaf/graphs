@@ -7,11 +7,14 @@ editor: visual
 ## Setup:
 
 ```{r initial-setup, include=FALSE, warning=FALSE}
-setwd("C:/Users/SZafar/Documents/Github/graphs/politicians/senate")  
+setwd("C:/Users/sarim/Documents/Github/graphs/politicians/senate")  
 
 if (!require("pacman")) install.packages("pacman") 
 pacman::p_load(tidyverse, stringr, lubridate, extrafont, janitor, 
-               scales, ggrepel, purrr, memoise, waffle, showtext, ggtext)
+               scales, waffle, showtext)
+
+
+extrafont::loadfonts(quiet = TRUE)
 
 font_add_google("Libre Franklin", "franklin")
 font_add_google("Playfair Display", "playfair")
@@ -86,6 +89,7 @@ my_caption <- "Chart: Sarim Zafar. \n Source: Data scraped from Wikipedia"
 ```
 
 ```{r , warning=FALSE}
+
 ggplot(plot_data, aes(fill = generation, values = count)) +
   geom_waffle(n_rows = 100, size = 0.6, color = "white") +
   facet_wrap(
@@ -114,13 +118,9 @@ ggplot(plot_data, aes(fill = generation, values = count)) +
     strip.switch.pad.grid = unit(-30, "pt"),  # remove padding around strips
     strip.switch.pad.wrap = unit(-30, "pt"),
     strip.text.x.bottom = element_text(size = 10, colour = "black", 
-                                       angle = 45, family = "Serif", 
+                                       angle = 45, family = "playfair", 
                                        margin(-4, 0, 0, 0)),
     # axes
-    axis.title.y = element_text(
-      angle = 90,
-      size = 10
-    ),
     axis.text = element_blank(),
     axis.ticks = element_blank(),
     panel.grid = element_blank(),
@@ -129,15 +129,15 @@ ggplot(plot_data, aes(fill = generation, values = count)) +
     legend.position = "top",
     legend.direction = "horizontal",
     legend.box.spacing = unit(-20, "pt"),
-    legend.text = element_text(size = 12, family = "Serif"),
+    legend.text = element_text(size = 12, family = "playfair"),
     # title + caption
     plot.title = element_markdown(size = 26, hjust = 0.5, 
-                                  family = "Serif",
+                                  family = "playfair",
                                   face = "bold", margin = margin(t = 2)),
     plot.subtitle = element_text(size = 13, hjust = 0.5, 
-                                 family = "Serif", color = "gray20", 
+                                 family = "playfair", color = "gray20", 
                                 margin = margin(t = 5)),
-    plot.caption = element_text(size = 10, family = "Serif", 
+    plot.caption = element_text(size = 10, family = "playfair", 
                                 margin = margin(t = 15), color = "gray45"),
     plot.caption.position = "panel",
   ) 
@@ -148,5 +148,5 @@ ggplot(plot_data, aes(fill = generation, values = count)) +
 #                   )
 
 
-ggsave("waffle2.png", width = 11, height = 10, dpi = 400)
+ggsave("waffle3.png", width = 11, height = 10, dpi = 400)
 ```
