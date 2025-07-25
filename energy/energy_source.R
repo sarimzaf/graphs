@@ -3,16 +3,23 @@
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, showtext, stringr, lubridate, magick, ggimage, 
                extrafont, janitor, magrittr, scales, ggrepel, ggpattern, 
-               RColorBrewer, usmap, maps, patchwork, ggh4x)
+               RColorBrewer, readxl, usmap, maps, patchwork)
 
 sysfonts::font_add_google("Libre Franklin", "franklin")
 myfont <- "franklin"
 showtext::showtext_opts(dpi = 300)
 showtext::showtext_auto()
 
-# --- 1. Data Setup -------------------------------------------------------
+cd <- getwd()
+x <- substr(cd, 10, 15)
 
-file <- "C:/Users/SZafar/Documents/Github/graphs/energy/generation_monthly.xlsx"
+if (x == "SZafar") {
+  file <- paste0("C:/Users/", x, "/Documents/Github/graphs/energy/generation_monthly.xlsx")
+} else {
+  file <- paste0("C:/Users/sarim/Documents/Github/graphs/energy/generation_monthly.xlsx")
+}
+
+# --- 1. Data Setup -------------------------------------------------------
 
 data_2025 <- read_excel(file, sheet = "2025_Preliminary", skip = 3) %>% 
   clean_names() %>% 
@@ -79,8 +86,6 @@ final <- bind_rows(data_dfs) %>%
 # --- 2. Map data  -------------------------------------------------------
 states_sf <- us_map(regions = "states")
 
-us <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
-
 # --- 2. Cleaning  -------------------------------------------------------
 most_used_map <- final %>%
   filter(energy_source != "Total" & str_length(state) < 3) %>% 
@@ -91,7 +96,6 @@ most_used_map <- final %>%
   mutate(geometry = geom) 
 
 
-
 # --- 3. Plot Map -------------------------------------------------------
 
 ### 3.1: Set parameters  ------------------------
@@ -100,7 +104,7 @@ colors <- c("Coal" = "#615C46",
             "Nuclear" = "#9E71C2", 
             "Hydroelectric" = "#81E3E9",
             "Petroleum" = "#D366A8",
-            "Other Biomass" = "#E2E2E2",
+            "Other Biomass" = "#6B8E23",
             "Wind" = "#719BC2",
             "Solar" = "#F7D930"
 )
@@ -224,31 +228,69 @@ ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017_2025
        plot = p3, width = 9, height = 5, dpi = 400, bg = "white")
 
 
-# --- 3. Plot Stacked Area Ordered -------------------------------------------------------
+# --- 4. Plot Stacked Area Ordered -------------------------------------------------------
 
-st = "AK"
+states_list <- c("AL", "NY", "AK", "CA", "CO", "FL", "TN", "AR", "AZ")
 # Step 2: Normalize to percentages
 df_stacked <- final %>%
-  filter(state == st & energy_source != "Total") %>%
-  group_by(year, month) %>%
-  mutate(total = sum(supply),
-         percent = supply/total,
+  filter(state %in% states_list & energy_source != "Total" & supply > 0) %>%
+  mutate(energy_source = ifelse(energy_source %in% names(colors), 
+                                energy_source, "Other")) %>% 
+  group_by(year, month, state, energy_source) %>%
+  summarise(supply = sum(supply),
+            .groups = "drop") %>% 
+  group_by(year, month, state) %>%
+  mutate(total = sum(supply)) %>% 
+  rowwise() %>% 
+  mutate(percent = supply/total,
          date = my(paste0(month, "-", year))
          ) 
 
+colors <- c(colors, "Other" = "#BEBEBE") 
 
-ggplot(df_stacked, aes(x = date, y = percent, fill = energy_source)) +
-  geom_area(color = "white", size = 0.2) +
+
+timeline1 <- ggplot(df_stacked, aes(x = date, y = percent, fill = energy_source)) +
+  geom_area(color = "black", size = 0.2) +
   scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
-  scale_fill_manual(values = colors)   
-labs(
-    title = "Dynamic Ordered 100% Stacked Area Chart",
-    x = "Year", y = "Share", fill = "Category"
+  scale_fill_manual(values = colors)  +  
+  labs(
+    title = NULL,
+    x = NULL, y = NULL
   ) +
-  theme_minimal() +
-  theme(panel.grid = element_blank())
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    panel.grid = element_blank(),
+    plot.background = element_blank(),
+    legend.title = element_blank(),
+    axis.title = element_blank(),
+    legend.position = "bottom",
+    plot.title = element_blank(),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(1, 'line'),
+    axis.text = element_text(size = 9)
+    ) +
+  guides(fill = guide_legend(nrow = 1)) +
+  coord_cartesian(expand = FALSE, clip = "off") +
+  facet_wrap(~ state, ncol = 3)
+
+ggsave("C:\\Users\\sarim\\Documents\\Github\\graphs\\energy\\stacked_area.png", 
+       plot = timeline1, width = 10, height = 8, dpi = 400, bg = "white")
 
 
+
+plot_list = list()
+for (i in 1:3) {
+  p = ggplot(iris, aes_string(x=var_list[[i]][1], y=var_list[[i]][2])) +
+    geom_point(size=3, aes(colour=Species))
+  plot_list[[i]] = p
+}
+
+# Another option: create pdf where each page is a separate plot.
+pdf("plots.pdf")
+for (i in 1:3) {
+  print(plot_list[[i]])
+}
+dev.off()
 
 
 p <- ggplot(df_stacked, aes(x = year, y = percent, fill= fct_reorder(category, percent, .desc = TRUE)))
