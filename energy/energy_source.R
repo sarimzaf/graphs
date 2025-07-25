@@ -75,12 +75,14 @@ object_names <- ls()
 data_files <- object_names[grepl("data_20",
                                    object_names)]
 data_dfs <- mget(data_files, envir = .GlobalEnv)
+
 # Bind
 final <- bind_rows(data_dfs) %>% 
   mutate(energy_source = case_when(
     grepl("Hydroelectric", energy_source, ignore.case = TRUE) ~ "Hydroelectric",
     TRUE ~ energy_source
-  ))
+  )) %>% 
+  filter(str_length(state) < 3 & energy_source != "Total" & supply > 0)
 
 
 # --- 2. Map data  -------------------------------------------------------
@@ -108,6 +110,36 @@ colors <- c("Coal" = "#615C46",
             "Wind" = "#719BC2",
             "Solar" = "#F7D930"
 )
+
+
+states_labels <- c(
+  "AL" = "Alabama", "AK" = "Alaska",
+  "AZ" = "Arizona", "AR" = "Arkansas",
+  "CA" = "California", "CO" = "Colorado",
+  "CT" = "Connecticut", "DC" = "Washington DC", "DE" = "Delaware",
+  "FL" = "Florida", "GA" = "Georgia",
+  "HI" = "Hawaii", "ID" = "Idaho",
+  "IL" = "Illinois", "IN" = "Indiana",
+  "IA" = "Iowa", "KS" = "Kansas",
+  "KY" = "Kentucky", "LA" = "Louisiana",
+  "ME" = "Maine", "MD" = "Maryland", 
+  "MA" = "Massachusetts", "MI" = "Michigan",
+  "MN" = "Minnesota", "MS" = "Mississippi",
+  "MO" = "Missouri", "MT" = "Montana",
+  "NE" = "Nebraska", "NV" = "Nevada",
+  "NH" = "New Hampshire", "NJ" = "New Jersey",
+  "NM" = "New Mexico", "NY" = "New York",
+  "NC" = "North Carolina", "ND" = "North Dakota",
+  "OH" = "Ohio", "OK" = "Oklahoma",
+  "OR" = "Oregon", "PA" = "Pennsylvania",
+  "RI" = "Rhode Island", "SC" = "South Carolina",
+  "SD" = "South Dakota", "TN" = "Tennessee",
+  "TX" = "Texas", "UT" = "Utah",
+  "VT" = "Vermont", "VA" = "Virginia",
+  "WA" = "Washington", "WV" = "West Virginia",
+  "WI" = "Wisconsin", "WY" = "Wyoming"
+)
+
 
 ### 3.2: Plot  ----------------------------------
 
@@ -230,22 +262,17 @@ ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017_2025
 
 # --- 4. Plot Stacked Area Ordered -------------------------------------------------------
 
-c('MS', 'NH')
-
-
-nums <- seq(4, 52, by = 5)
+nums <- seq(4, 52, by = 4)
 count = 1
 for (i in nums) {
   j = i-3
   x = paste0("states_", count)
   assign(x, pull(final %>% 
-                   filter(str_length(state) < 3) %>% 
-                    group_by(state) %>% summarise(count = n()) %>% slice(j:i) %>% select(state))
+                   group_by(state) %>% summarise(count = n()) %>% slice(j:i) %>% select(state))
   )
   count = count+1
 }
 
-state_list = states_1
 multi_state_map <- function(state_list) {
   df_stacked <- final %>%
     mutate(quarter = case_when(
@@ -255,7 +282,7 @@ multi_state_map <- function(state_list) {
       month > 9 & month <= 12 ~ 4,
       TRUE ~ NA
     )) %>% 
-    filter(state %in% c('NH') & energy_source != "Total" & supply > 0) %>%
+    filter(state %in% state_list) %>%
     mutate(energy_source = ifelse(energy_source %in% names(colors), 
                                   energy_source, "Other")) %>% 
     group_by(year, quarter, state, energy_source) %>%
@@ -267,7 +294,6 @@ multi_state_map <- function(state_list) {
            month = month[1]) %>% 
     rowwise() %>% 
     mutate(percent = supply/total,
-           # date = year
            date = my(paste0(month, "-", year))
     ) 
   
@@ -275,7 +301,7 @@ multi_state_map <- function(state_list) {
   
   p <- ggplot(df_stacked, aes(x = date, y = percent, fill = energy_source)) +
     geom_area(color = "black", size = 0.2, na.rm=TRUE, 
-              position="fill") +
+              position = "fill") +
     scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
     scale_fill_manual(values = colors)  +  
     labs(
@@ -288,43 +314,86 @@ multi_state_map <- function(state_list) {
       plot.background = element_blank(),
       legend.title = element_blank(),
       axis.title = element_blank(),
-      legend.position = "bottom",
+      legend.position = "top",
       plot.title = element_blank(),
-      legend.text = element_text(size = 8, family = myfont),
+      legend.text = element_text(size = 13, family = myfont),
       legend.key.size = unit(1, 'line'),
-      axis.text = element_text(size = 9, family = myfont)
+      axis.text = element_text(size = 10, family = myfont),
+      # facet
+      strip.text = element_text(size = 14, hjust = 0.5, face = "bold",
+                                lineheight = 1, margin = margin(t = -1, r = 0, l = 0, b = 3))
     ) +
     guides(fill = guide_legend(nrow = 1)) +
     coord_cartesian(expand = FALSE, clip = "off") +
-    facet_wrap(~ state, ncol = 2)
+    facet_wrap(~ state, ncol = 2, labeller = as_labeller(states_labels))
 }
 
 
 plot_list = list()
 
-for (i in 1:13) {
+for (i in 1:13) {  ####
   # Construct the state list variable name dynamically
   state_list_name <- paste0("states_", i)
   current_states <- get(state_list_name)
-  plot_list[[i]] <- multi_state_map(state_list = current_states)
-
+  plot_list[[i]] <- multi_state_map(state_list = current_states) ### 
+  
+  if (i > 1) {
+    plot_final <- plot_list[[i]] + theme(legend.position = "none")
+  } else {
+    plot_final <- plot_list[[i]]
+  }
+  
   filename = paste0("stacked_area_", i)
-  ggsave(paste0("C:\\Users\\sarim\\Documents\\Github\\graphs\\energy\\", filename, ".png"), 
-         plot = plot_list[[i]], width = 10, height = 9, dpi = 400, bg = "white")
-
+  ggsave(paste0("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\", filename, ".png"), 
+         plot = plot_final, width = 10, height = 9, dpi = 400, bg = "white")
 }
 
 
+# --- 5. Ribbon -------------------------------------------------------
 
-p <- ggplot(df_stacked, aes(x = year, y = percent, fill= fct_reorder(energy_source, percent, .desc = TRUE)))
-p + geom_ribbon(aes(ymin =0 , ymax= 1) )
+# Yearly:
+df_ribbon <- final %>%
+  mutate(date = my(paste0(month, "-", year)))  %>% 
+  filter(state == 'AR') %>% 
+  group_by(year, state, energy_source) %>%
+  summarise(yr_supply = sum(supply)) %>% 
+  ungroup() %>% 
+  group_by(year) %>% 
+  mutate(share = yr_supply / sum(yr_supply)) %>% 
+  arrange(year, yr_supply) %>%
+  mutate(
+    ymin = c(0, head(cumsum(share), -1)),
+    ymax = cumsum(share)
+  ) %>%
+  ungroup()
 
 
-ggplot(df_stacked, aes(x = date, y = percent, fill= fct_reorder(energy_source, percent))) +
-  geom_ribbon(aes(x = date, ymin =0 , ymax= 1),
-              color = "black") +
-  scale_fill_manual(values = colors)
+# Monthly:
+# df_ribbon <- final %>%
+#   mutate(date = my(paste0(month, "-", year)))  %>% 
+#   filter(state == 'AR') %>% 
+#   group_by(date) %>%
+#   mutate(share = supply / sum(supply)) %>% 
+#   arrange(date, supply) %>%
+#   mutate(
+#     ymin = c(0, head(cumsum(share), -1)),
+#     ymax = cumsum(share)
+#   ) %>%
+#   ungroup()
+
+colors <- c(colors, "Other" = "#BEBEBE") 
 
 
+ggplot(df_ribbon, aes(x = year, y = share, group = energy_source)) +
+  geom_ribbon(aes(ymin=ymin,
+                  ymax=ymax,
+                  fill = factor(energy_source)),
+              color = "black",
+              size = 0.25, alpha = 1) +
+  scale_fill_manual(values = colors) +
+  theme_minimal() +
+scale_y_continuous(labels = scales::percent, expand = c(0, 0))
+
+  
 
 
