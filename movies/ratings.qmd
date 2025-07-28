@@ -1,0 +1,182 @@
+---
+title: "Movie Ratings"
+format: html
+editor: visual
+---
+
+## Import SQL db
+
+```{r, warning=FALSE include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(DBI, RSQLite, dplyr, ggplot2, stringr, lubridate, readr, tidyr, ggrepel, ggimage, cowplot)
+```
+
+```{r, warning=FALSE}
+con <- dbConnect(RSQLite::SQLite(), "C:/Users/sarim/Documents/Github/test/random/movies/movies.db")
+
+dbListTables(con)
+
+directors <- dbReadTable(con, "directors")
+
+movies <- dbReadTable(con, "movies") %>% 
+    rename(movie_id = id)
+
+people <- dbReadTable(con, "people") %>% 
+    rename(person_id = id)
+
+stars <- dbReadTable(con, "stars")
+
+ratings <- dbReadTable(con, "ratings")
+```
+
+people \<- left_join(people, directors, by = "person_id", relationship = "many-to-many")
+
+```{r}
+
+# imdb <- full_join(ratings, movies, by = "movie_id")
+# 
+# people <- left_join(people, stars, by = "person_id")
+# 
+# people <- left_join(people, directors, by = "person_id", relationship = "many-to-many")
+
+
+
+
+```
+
+```{r}
+
+rotten <- read.csv("C:/Users/sarim/Documents/Github/test/random/movies/movie_info.csv")
+
+rotten <- rotten %>%
+  filter(nchar(release_date) > 4) %>%
+  mutate(
+    cleaned_date_str = case_when(
+      str_detect(release_date, "^Released ") ~ str_remove(release_date, "^Released "), TRUE ~ NA_character_
+    ),
+    # Convert the extracted string to a Date object
+    release_date = mdy(cleaned_date_str),
+    critic_score = parse_number(critic_score),
+    audience_score = parse_number(audience_score)
+  ) %>% 
+  select(-cleaned_date_str)
+```
+
+## Set-up
+
+```{r}
+quarterly_rotten <- rotten %>%
+  # Create a new column representing the first day of the month for grouping
+  mutate(release_quarter = floor_date(release_date, "quarter")) %>%
+  group_by(release_quarter) %>%
+  summarise(
+    avg_critic_score = mean(critic_score, na.rm = TRUE),
+    avg_audience_score = mean(audience_score, na.rm = TRUE),
+    total = n(),
+    .groups = 'drop' # Ungroup after summarising
+  ) %>%
+  # Remove rows where both averages are NA
+  filter(!(is.na(avg_critic_score) & is.na(avg_audience_score))) %>%
+  # Arrange by month for better line plot presentation
+  arrange(release_quarter)
+```
+
+```{r}
+quarterly_rotten_long <- quarterly_rotten %>%
+  pivot_longer(
+    cols = starts_with("avg_"),
+    names_to = "rating_type",
+    values_to = "average_score"
+  ) %>%
+  mutate(
+    rating_type = recode(rating_type,
+                         "avg_critic_score" = "Critic Score",
+                         "avg_audience_score" = "Audience Score"),
+    label_text = case_when(
+      rating_type == "Critic Score" ~ "Critic",
+      rating_type == "Audience Score" ~ "Audience",
+      TRUE ~ "" # Fallback
+    ),
+    label_text = ifelse(release_quarter != "2023-10-01", NA, label_text),
+    label_x_pos = release_quarter + days(10)
+  ) %>% 
+  filter(year(release_quarter) > 1970)
+```
+
+## Images
+
+```{r}
+critic_img <- "C:/Users/sarim/Documents/Github/test/random/movies/tomato.png"
+
+audience_img <- "C:/Users/sarim/Documents/Github/test/random/movies/popcorn.png"
+
+quarterly_rotten_long <- quarterly_rotten_long %>%
+  mutate(
+    image = case_when(rating_type == "Critic Score" ~ critic_img,
+                      rating_type == "Audience Score" ~ audience_img,
+                      TRUE ~ ""),
+    image = ifelse(release_quarter != "2023-10-01", NA, image),
+  )
+```
+
+## Plot
+
+```{r, warning=FALSE}
+
+my_colors <- c("Critic Score" = "#F93209", "Audience Score" = "#0AC957")
+
+p1 <- ggplot(quarterly_rotten_long) +
+  geom_line(aes(x = release_quarter, y = average_score, color = rating_type),
+            linewidth = 0.7) +
+  geom_point(aes(x = release_quarter, y = average_score, color = rating_type),
+             size = 1.8, alpha = 0.7) +
+    geom_image(aes(x = label_x_pos, y = average_score, image = image), 
+             size = 0.035) +
+  labs(
+    title = " ",
+    x = "Release Quarter",
+    y = "Average Rating (%)",
+    color = "Rating Type"
+  ) +
+  scale_y_continuous(limits = c(30, 100), breaks = seq(30, 100, by = 10)) +
+  scale_x_date(date_breaks = "12 months", date_labels = "%Y") +
+  scale_color_manual(values = my_colors) +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    legend.position = "none",
+    panel.grid.minor = element_blank()
+  ) 
+
+# +
+#   geom_text_repel(data = quarterly_rotten_long, 
+#                   aes(label_x_pos, average_score, label = label_text),
+#                   hjust = 0, direction = "y", show.legend = FALSE)
+```
+
+```{r}
+legend_data <- data.frame(
+  x = 1,
+  y = c(1.002,1.0),
+  image = c(critic_img, audience_img),
+  label = c("Critic", "Audience")
+)
+
+legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
+  geom_image(aes(image = image), size = 0.04) +
+  geom_text(aes(label = label), hjust = -0.6, vjust = 0.5, size = 3) +
+  xlim(0.95, 1.05) +
+  ylim(0.995, 1.01) +
+  theme_void() +
+  theme(
+    plot.margin = margin(0, 0, 0, 0)  # Less padding around legend
+  )
+
+legend_plot
+```
+
+```{r}
+x <- cowplot::plot_grid(p1, legend_plot, ncol = 2, rel_widths = c(4.5, 1))
+x
+```
