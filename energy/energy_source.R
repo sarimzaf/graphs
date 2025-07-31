@@ -2,8 +2,9 @@
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, showtext, stringr, lubridate, magick, ggimage, 
-               extrafont, janitor, magrittr, scales, ggrepel, ggpattern, 
-               RColorBrewer, readxl, usmap, maps, patchwork, ggforce)
+               extrafont, janitor, magrittr, scales, ggrepel, ggpattern, here,
+               RColorBrewer, readxl, usmap, maps, patchwork, ggforce, gganimate,
+               directlabels)
 
 sysfonts::font_add_google("Libre Franklin", "franklin")
 myfont <- "franklin"
@@ -13,6 +14,7 @@ showtext::showtext_auto()
 cd <- getwd()
 x <- substr(cd, 10, 15)
 
+here <- here()
 if (x == "SZafar") {
   file <- paste0("C:/Users/", x, "/Documents/Github/graphs/energy/generation_monthly.xlsx")
 } else {
@@ -370,10 +372,10 @@ df_ribbon <- final %>%
 
 # Monthly:
 # df_ribbon <- final %>%
-#   mutate(date = my(paste0(month, "-", year)))  %>% 
-#   filter(state == 'AR') %>% 
+#   mutate(date = my(paste0(month, "-", year)))  %>%
+#   filter(state == 'AR') %>%
 #   group_by(date) %>%
-#   mutate(share = supply / sum(supply)) %>% 
+#   mutate(share = supply / sum(supply)) %>%
 #   arrange(date, supply) %>%
 #   mutate(
 #     ymin = c(0, head(cumsum(share), -1)),
@@ -395,5 +397,53 @@ ggplot(df_ribbon, aes(x = year, y = share, group = energy_source)) +
 scale_y_continuous(labels = scales::percent, expand = c(0, 0))
 
   
+# --- 5. National: Line -------------------------------------------------------
 
+df_line <- final %>%
+  mutate(date = my(paste0(month, "-", year)),
+         energy_source = ifelse(energy_source %in% names(colors), 
+                                energy_source, "Other")) %>% 
+  group_by(year, energy_source) %>%
+  summarise(us_supply = sum(supply),
+            .groups = "drop") %>%
+  group_by(year) %>% 
+  mutate(share = percent(us_supply / sum(us_supply))) %>% 
+  ungroup()
+
+
+p <- ggplot(df_line %>% filter(year < 2025), 
+       aes(x = year, y = us_supply, color = energy_source)) +
+  geom_line(size = 1.1) +
+  geom_dl(aes(label = energy_source), method = list(dl.trans(x = x + .2), "last.points",
+                                                    cex = 0.7)) +
+  scale_color_manual(values = colors) +
+  scale_x_continuous(limits = c(min(df_line$year), max(df_line$year)),
+                     breaks = seq(min(df_line$year), max(df_line$year) , by = 2)) +
+  scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+  # scale_x_date(limits = c(min(df_line$date), max(df_line$date)),
+  #              date_breaks  = '2 years',
+  #              labels = date_format("%Y")) +
+  theme_void(base_size = 10, base_family = myfont) +
+  theme(
+    axis.text = element_text(size = 6,
+                             family = myfont),
+    legend.position = "none" 
+  ) +
+  coord_cartesian(xlim = c(min(df_line$year), max(df_line$year)+1.5),
+                  expand = FALSE, clip = 'off')
+
+ggsave(paste0(here, "/energy/line.png"), 
+       plot = p, width = 10, height = 8, dpi = 200, bg = "white")
+
+
+######## animated
+p <- p +
+  transition_reveal(year)
+
+animate(p, 
+        height = 1000, width = 1000,
+        res = 200, nframes = 90, fps = 10)
+
+filename <- paste0(here, "/energy/line_anim.gif")
+anim_save(filename)
 

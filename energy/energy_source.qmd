@@ -1,6 +1,6 @@
 ---
 title: "Energy Source"
-format: html
+format: gfm
 editor: visual
 ---
 
@@ -21,9 +21,13 @@ pacman::p_load(tidyverse, rvest, stringr, lubridate, RCurl, extrafont, janitor, 
 
 ## Addition:
 
+### US Map:
+
 ![](map_2001_2025.png){fig-align="center"}
 
 ![](map_2001_2017_2025.png){fig-align="center"}
+
+### Stacked Area:
 
 ![](stacked_area_1.png){fig-align="center"}
 
