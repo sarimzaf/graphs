@@ -4,8 +4,6 @@ format: gfm
 editor: visual
 ---
 
-## Setup:
-
 ```{r initial-setup, warning=FALSE, include=FALSE}
 setwd("C:/Users/SZafar/Documents/Github/graphs/politicians/senate")  
 
@@ -14,6 +12,8 @@ pacman::p_load(tidyverse, rvest, stringr, lubridate, RCurl, extrafont, janitor, 
 ```
 
 ## Inspiration:
+
+Original article from [I'm an inline-style link](https://www.google.com)
 
 ## Replication:
 

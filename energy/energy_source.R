@@ -358,7 +358,8 @@ df_ribbon <- final %>%
   mutate(date = my(paste0(month, "-", year)))  %>% 
   filter(state == 'AR') %>% 
   group_by(year, state, energy_source) %>%
-  summarise(yr_supply = sum(supply)) %>% 
+  summarise(yr_supply = sum(supply),
+            .groups = "drop") %>% 
   ungroup() %>% 
   group_by(year) %>% 
   mutate(share = yr_supply / sum(yr_supply)) %>% 
@@ -367,8 +368,31 @@ df_ribbon <- final %>%
     ymin = c(0, head(cumsum(share), -1)),
     ymax = cumsum(share)
   ) %>%
-  ungroup()
+  ungroup() %>% 
+  mutate(energy_source = ifelse(energy_source == "Wood and Wood Derived Fuels",
+                                "Wood", energy_source))
 
+max_shares <- df_ribbon %>% 
+  group_by(energy_source) %>% 
+  mutate(highest_share = max(share)) %>% 
+  ungroup() %>% 
+  filter(year == 2004) %>% 
+  arrange(-share) %>%
+  filter(share > 0.05) %>% 
+  mutate(running_share = 1-cumsum(share)) %>% 
+  mutate(y = running_share+(running_share/2)) %>% 
+  mutate()
+
+text_colors <- c("Coal" = "white",
+                "Natural Gas" = "black", 
+                "Nuclear" = "black", 
+                "Hydroelectric" = "black",
+                "Petroleum" = "black",
+                "Other Biomass" = "black",
+                "Wind" = "black",
+                "Solar" = "black",
+                "Other" = "black"
+)
 
 # Monthly:
 # df_ribbon <- final %>%
@@ -386,15 +410,38 @@ df_ribbon <- final %>%
 colors <- c(colors, "Other" = "#BEBEBE") 
 
 
-ggplot(df_ribbon, aes(x = year, y = share, group = energy_source)) +
+p <- ggplot(df_ribbon, aes(x = year, y = share, group = energy_source)) +
   geom_ribbon(aes(ymin=ymin,
                   ymax=ymax,
                   fill = factor(energy_source)),
               color = "black",
               size = 0.25, alpha = 1) +
+  geom_text(data = max_shares,
+            aes(x = 2003.5, y = y, label = energy_source, color = energy_source),
+            family = myfont, size = 3.4, fontface = "bold") +
+  scale_color_manual(values = text_colors) +
   scale_fill_manual(values = colors) +
-  theme_minimal() +
-scale_y_continuous(labels = scales::percent, expand = c(0, 0))
+  scale_y_continuous(labels = scales::percent, 
+                     limits = c(0, 1),
+                     breaks = seq(0.2, 1, by = 0.2),
+                     expand = c(0, 0)) +
+  scale_x_continuous(limits = c(min(df_ribbon$year), max(df_ribbon$year)+0.45),
+                     breaks = seq(min(df_ribbon$year), max(df_ribbon$year) , by = 4),
+                     expand = c(0, 0)) +
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    # axes
+    axis.title = element_blank(),
+    # legend
+    legend.position = "none"
+  )
+
+
+ggsave(paste0(here, "/energy/output/ribbon_AR.png"), 
+       plot = p, width = 10, height = 8, dpi = 200, bg = "white")
 
   
 # --- 5. National: Line -------------------------------------------------------
