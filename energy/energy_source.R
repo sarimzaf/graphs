@@ -15,11 +15,8 @@ cd <- getwd()
 x <- substr(cd, 10, 15)
 
 here <- here()
-if (x == "SZafar") {
-  file <- paste0("C:/Users/", x, "/Documents/Github/graphs/energy/generation_monthly.xlsx")
-} else {
-  file <- paste0("C:/Users/sarim/Documents/Github/graphs/energy/generation_monthly.xlsx")
-}
+
+file <- paste0(here, "/energy/generation_monthly.xlsx")
 
 # --- 1. Data Setup -------------------------------------------------------
 
@@ -95,7 +92,6 @@ most_used_map <- final %>%
   filter(energy_source != "Total" & str_length(state) < 3) %>% 
   group_by(year, state) %>% 
   filter(supply == max(supply)) %>%
-  filter(year == 2001 | year == 2017) %>% 
   left_join(states_sf, by = c("state" = "abbr")) %>% 
   mutate(geometry = geom) 
 
@@ -115,30 +111,19 @@ colors <- c("Coal" = "#615C46",
 
 
 states_labels <- c(
-  "AL" = "Alabama", "AK" = "Alaska",
-  "AZ" = "Arizona", "AR" = "Arkansas",
-  "CA" = "California", "CO" = "Colorado",
-  "CT" = "Connecticut", "DC" = "Washington DC", "DE" = "Delaware",
-  "FL" = "Florida", "GA" = "Georgia",
-  "HI" = "Hawaii", "ID" = "Idaho",
-  "IL" = "Illinois", "IN" = "Indiana",
-  "IA" = "Iowa", "KS" = "Kansas",
-  "KY" = "Kentucky", "LA" = "Louisiana",
-  "ME" = "Maine", "MD" = "Maryland", 
-  "MA" = "Massachusetts", "MI" = "Michigan",
-  "MN" = "Minnesota", "MS" = "Mississippi",
-  "MO" = "Missouri", "MT" = "Montana",
-  "NE" = "Nebraska", "NV" = "Nevada",
-  "NH" = "New Hampshire", "NJ" = "New Jersey",
-  "NM" = "New Mexico", "NY" = "New York",
-  "NC" = "North Carolina", "ND" = "North Dakota",
-  "OH" = "Ohio", "OK" = "Oklahoma",
-  "OR" = "Oregon", "PA" = "Pennsylvania",
-  "RI" = "Rhode Island", "SC" = "South Carolina",
-  "SD" = "South Dakota", "TN" = "Tennessee",
-  "TX" = "Texas", "UT" = "Utah",
-  "VT" = "Vermont", "VA" = "Virginia",
-  "WA" = "Washington", "WV" = "West Virginia",
+  "AL" = "Alabama", "AK" = "Alaska", "AZ" = "Arizona", "AR" = "Arkansas",
+  "CA" = "California", "CO" = "Colorado", "CT" = "Connecticut", 
+  "DC" = "Washington DC", "DE" = "Delaware", "FL" = "Florida", "GA" = "Georgia",
+  "HI" = "Hawaii", "ID" = "Idaho", "IL" = "Illinois", "IN" = "Indiana",
+  "IA" = "Iowa", "KS" = "Kansas", "KY" = "Kentucky", "LA" = "Louisiana",
+  "ME" = "Maine", "MD" = "Maryland", "MA" = "Massachusetts", "MI" = "Michigan",
+  "MN" = "Minnesota", "MS" = "Mississippi", "MO" = "Missouri", "MT" = "Montana",
+  "NE" = "Nebraska", "NV" = "Nevada", "NH" = "New Hampshire", "NJ" = "New Jersey",
+  "NM" = "New Mexico", "NY" = "New York", "NC" = "North Carolina", 
+  "ND" = "North Dakota", "OH" = "Ohio", "OK" = "Oklahoma", "OR" = "Oregon", 
+  "PA" = "Pennsylvania", "RI" = "Rhode Island", "SC" = "South Carolina",
+  "SD" = "South Dakota", "TN" = "Tennessee", "TX" = "Texas", "UT" = "Utah",
+  "VT" = "Vermont", "VA" = "Virginia", "WA" = "Washington", "WV" = "West Virginia",
   "WI" = "Wisconsin", "WY" = "Wyoming"
 )
 
@@ -180,7 +165,7 @@ p1 <- plot_usmap(
     legend.key.size = unit(0.6,"line")
   )
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017.png", 
+ggsave(filename = paste0(here, "/energy/map_2001_2017.png"), 
        plot = p1, width = 10, height = 6, dpi = 400, bg = "white")
 
 ##### Till 2025
@@ -217,7 +202,7 @@ p2 <- plot_usmap(
     legend.key.size = unit(0.6,"line")
   )
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2025.png", 
+ggsave(filename = paste0(here, "/energy/map_2001_2025.png"), 
        plot = p2, width = 10, height = 6, dpi = 400, bg = "white")
 
 
@@ -258,8 +243,156 @@ p3 <- plot_usmap(
   ) +
   guides(fill = guide_legend(nrow = 1))
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017_2025.png", 
+ggsave(filename = paste0(here, "/energy/map_2001_2017_2025.png"), 
        plot = p3, width = 9, height = 5, dpi = 400, bg = "white")
+
+
+### 3.3: Individual Plots  ----------------------------------
+
+##### 2001
+p2001 <- plot_usmap(
+  data = most_used_map %>% 
+    filter(year == 2001),
+  values = "energy_source",
+  region = "states",
+  color = "white"
+) +
+  scale_fill_manual(
+    values = colors
+  ) +
+  labs(
+    title = "Top Source of Electricity Generation In Every State"
+  ) +
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    # plot.margin=unit(c(-0.5,-0.5,-0.5,-0.5),"cm"),
+    # title
+    plot.title = element_text(size = 13, hjust = 0.5, face = "bold",
+                              margin = margin(t = 0.5, r = 0, l = 0, b = -3)), 
+    # legend
+    legend.position = "top",
+    legend.text = element_text(size = 9),
+    legend.title = element_blank(),
+    legend.key.size = unit(0.6,"line"),
+    legend.box.spacing = unit(-1, "pt")
+  )
+
+ggsave(filename = paste0(here, "/energy/map_2001_only.png"), 
+       plot = p2001, width = 9, height = 5, dpi = 400, bg = "white")
+
+
+##### 2015
+p2015 <- plot_usmap(
+  data = most_used_map %>% 
+    filter(year == 2015),
+  values = "energy_source",
+  region = "states",
+  color = "white"
+) +
+  scale_fill_manual(
+    values = colors
+  ) +
+  labs(
+    title = "Top Source of Electricity Generation In Every State"
+  ) +
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    # plot.margin=unit(c(-0.5,-0.5,-0.5,-0.5),"cm"),
+    # title
+    plot.title = element_text(size = 13, hjust = 0.5, face = "bold",
+                              margin = margin(t = 0.5, r = 0, l = 0, b = -3)), 
+    # legend
+    legend.position = "top",
+    legend.text = element_text(size = 9),
+    legend.title = element_blank(),
+    legend.key.size = unit(0.6,"line"),
+    legend.box.spacing = unit(-1, "pt")
+  )
+
+ggsave(filename = paste0(here, "/energy/map_2015_only.png"), 
+       plot = p2015, width = 9, height = 5, dpi = 400, bg = "white")
+
+
+##### 2025
+p2025 <- plot_usmap(
+  data = most_used_map %>% 
+    filter(year == 2025),
+  values = "energy_source",
+  region = "states",
+  color = "white"
+) +
+  scale_fill_manual(
+    values = colors
+  ) +
+  labs(
+    title = "Top Source of Electricity Generation In Every State"
+  ) +
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    # plot.margin=unit(c(-0.5,-0.5,-0.5,-0.5),"cm"),
+    # title
+    plot.title = element_text(size = 13, hjust = 0.5, face = "bold",
+                              margin = margin(t = 0.5, r = 0, l = 0, b = -3)), 
+    # legend
+    legend.position = "top",
+    legend.text = element_text(size = 9),
+    legend.title = element_blank(),
+    legend.key.size = unit(0.6,"line"),
+    legend.box.spacing = unit(-1, "pt")
+  )
+
+ggsave(filename = paste0(here, "/energy/map_2025_only.png"), 
+       plot = p2025, width = 9, height = 5, dpi = 400, bg = "white")
+
+
+##### 2025
+pall <- plot_usmap(
+  data = most_used_map,
+  values = "energy_source",
+  region = "states",
+  color = "white"
+) +
+  scale_fill_manual(
+    values = colors
+  ) +
+  labs(
+    title = "Top Source of Electricity Generation In Every State"
+  ) +
+  theme_minimal(base_size = 12, base_family = myfont) +
+  theme(
+    plot.background = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    # plot.margin=unit(c(-0.5,-0.5,-0.5,-0.5),"cm"),
+    # title
+    plot.title = element_text(size = 13, hjust = 0.5, face = "bold",
+                              margin = margin(t = 0.5, r = 0, l = 0, b = -3)), 
+    # legend
+    legend.position = "top",
+    legend.text = element_text(size = 9),
+    legend.title = element_blank(),
+    legend.key.size = unit(0.6,"line"),
+    legend.box.spacing = unit(-1, "pt")
+  )
+
+
+pall + transition_manual(frames = year)
+
+ggsave(filename = paste0(here, "/energy/map_2025_only.png"), 
+       plot = p2025, width = 9, height = 5, dpi = 400, bg = "white")
 
 
 # --- 4. Plot Stacked Area Ordered -------------------------------------------------------
@@ -346,7 +479,7 @@ for (i in 1:13) {  ####
   }
   
   filename = paste0("stacked_area_", i)
-  ggsave(paste0("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\", filename, ".png"), 
+  ggsave(paste0(here, "/energy/", filename, ".png"), 
          plot = plot_final, width = 10, height = 9, dpi = 400, bg = "white")
 }
 
@@ -444,7 +577,7 @@ ggsave(paste0(here, "/energy/output/ribbon_AR.png"),
        plot = p, width = 10, height = 8, dpi = 200, bg = "white")
 
   
-# --- 5. National: Line -------------------------------------------------------
+# --- 6. National: Line -------------------------------------------------------
 
 df_line <- final %>%
   mutate(date = my(paste0(month, "-", year)),
