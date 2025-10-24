@@ -63,7 +63,6 @@ animate()
 
 
 
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -84,7 +83,7 @@ df <- data.frame(
 # Dense year sequence
 years_dense <- seq(min(df$year), max(df$year), by = 0.1)
 
-# Interpolate per country (must stay grouped!)
+# Interpolate per country
 interp_df <- df %>%
   group_by(country) %>%
   do({
@@ -99,28 +98,28 @@ smooth_df <- interp_df %>%
   arrange(desc(value), .by_group = TRUE) %>%
   mutate(
     total = sum(value, na.rm = TRUE),
-    prop = value / total,
-    ymin = cumsum(prop) - prop,
-    ymax = cumsum(prop),
-    mid  = (ymin + ymax) / 2
+    prop  = value / total,
+    ymin  = cumsum(prop) - prop,
+    ymax  = cumsum(prop),
+    mid   = (ymin + ymax) / 2
   ) %>%
   ungroup()
 
-# Quick check: look at first few rows
-print(head(smooth_df, 12))
-
-# Animated stacked ribbons
+# Animated plot
 p <- ggplot(smooth_df, aes(x = year)) +
   geom_ribbon(aes(ymin = ymin, ymax = ymax, fill = country), alpha = 0.8) +
-  geom_line(aes(y = mid, color = country), size = 1.2) +
+  geom_line(aes(y = mid, color = country, group = country), size = 1.2) +
   scale_y_continuous(labels = scales::percent) +
   theme_minimal(base_size = 14) +
-  labs(title = "Stacked Bump Chart | Year: {frame_time}") +
-  transition_time(year) +
-  ease_aes("cubic-in-out")
+  labs(title = "Stacked Bump Chart | Year: {round(frame_along,1)}") 
 
-# Render animation
-animate(p, nframes = 100, fps = 20, width = 800, height = 500)
+anim <- p +
+  transition_reveal(year, transition_length = 2)   # <-- key change
+
+# Render
+animate(anim, nframes = 100, fps = 10, width = 800, height = 500)
+
+
 
 
 
