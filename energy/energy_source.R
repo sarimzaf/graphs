@@ -3,21 +3,19 @@
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, showtext, stringr, lubridate, magick, ggimage, 
                extrafont, janitor, magrittr, scales, ggrepel, ggpattern, 
-               RColorBrewer, readxl, usmap, maps, patchwork, ggforce)
+               RColorBrewer, readxl, usmap, maps, patchwork, ggforce, here)
 
 sysfonts::font_add_google("Libre Franklin", "franklin")
 myfont <- "franklin"
 showtext::showtext_opts(dpi = 300)
 showtext::showtext_auto()
 
+here <- here()
+
 cd <- getwd()
 x <- substr(cd, 10, 15)
 
-if (x == "SZafar") {
-  file <- paste0("C:/Users/", x, "/Documents/Github/graphs/energy/generation_monthly.xlsx")
-} else {
-  file <- paste0("C:/Users/sarim/Documents/Github/graphs/energy/generation_monthly.xlsx")
-}
+file <- paste0(here, "/energy/generation_monthly.xlsx")
 
 # --- 1. Data Setup -------------------------------------------------------
 
@@ -178,7 +176,7 @@ p1 <- plot_usmap(
     legend.key.size = unit(0.6,"line")
   )
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017.png", 
+ggsave(here, "\\energy\\map_2001_2017.png", 
        plot = p1, width = 10, height = 6, dpi = 400, bg = "white")
 
 ##### Till 2025
@@ -215,7 +213,7 @@ p2 <- plot_usmap(
     legend.key.size = unit(0.6,"line")
   )
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2025.png", 
+ggsave(here, "\\energy\\map_2001_2025.png", 
        plot = p2, width = 10, height = 6, dpi = 400, bg = "white")
 
 
@@ -256,7 +254,7 @@ p3 <- plot_usmap(
   ) +
   guides(fill = guide_legend(nrow = 1))
 
-ggsave("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\map_2001_2017_2025.png", 
+ggsave(here, "\\energy\\map_2001_2017_2025.png", 
        plot = p3, width = 9, height = 5, dpi = 400, bg = "white")
 
 
@@ -268,7 +266,8 @@ for (i in nums) {
   j = i-3
   x = paste0("states_", count)
   assign(x, pull(final %>% 
-                   group_by(state) %>% summarise(count = n()) %>% slice(j:i) %>% select(state))
+                   group_by(state) %>% 
+                   summarise(count = n()) %>% slice(j:i) %>% select(state))
   )
   count = count+1
 }
@@ -344,7 +343,7 @@ for (i in 1:13) {  ####
   }
   
   filename = paste0("stacked_area_", i)
-  ggsave(paste0("C:\\Users\\SZafar\\Documents\\Github\\graphs\\energy\\", filename, ".png"), 
+  ggsave(paste0(here, "\\energy\\", filename, ".png"), 
          plot = plot_final, width = 10, height = 9, dpi = 400, bg = "white")
 }
 
