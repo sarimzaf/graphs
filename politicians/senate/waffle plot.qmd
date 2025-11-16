@@ -11,13 +11,15 @@ setwd("C:/Users/sarim/Documents/Github/graphs/politicians/senate")
 
 if (!require("pacman")) install.packages("pacman") 
 pacman::p_load(tidyverse, stringr, lubridate, extrafont, janitor, 
-               scales, waffle, showtext)
+               scales, waffle, showtext, ggtext, sysfonts)
 
 
 extrafont::loadfonts(quiet = TRUE)
-
-font_add_google("Libre Franklin", "franklin")
 font_add_google("Playfair Display", "playfair")
+font_add_google("EB Garamond", "garamond")
+
+myfont <- "garamond"
+
 showtext_opts(dpi = 400)
 showtext_auto
 ```
@@ -90,63 +92,68 @@ my_caption <- "Chart: Sarim Zafar. \n Source: Data scraped from Wikipedia"
 
 ```{r , warning=FALSE}
 
-ggplot(plot_data, aes(fill = generation, values = count)) +
-  geom_waffle(n_rows = 100, size = 0.6, color = "white") +
-  facet_wrap(
-    ~election_year,
-    nrow = 1,
-    strip.position = "bottom",
-    scales = "free_x"
-  ) +
-  guides(fill = guide_legend(nrow = 1)) +
-  scale_fill_manual(values = colors) +
-  # labels and annotate
-  labs(
-    title = my_title,
-    subtitle = my_subtitle,
-    fill = "Generation",
-    y = "US Senators"
-  ) +
-  # theme stuff
-  theme_minimal(base_size = 12, base_family = "playfair") +
-  theme_enhance_waffle() +
-  theme(
-    plot.margin = margin(0, 0, 0, 40),
-    # strip
-    panel.spacing = unit(0, "pt"),  # remove space between facets
-    strip.placement = "outside",
-    strip.switch.pad.grid = unit(-30, "pt"),  # remove padding around strips
-    strip.switch.pad.wrap = unit(-30, "pt"),
-    strip.text.x.bottom = element_text(size = 10, colour = "black", 
-                                       angle = 45, family = "playfair", 
-                                       margin(-4, 0, 0, 0)),
-    # axes
-    axis.text = element_blank(),
-    axis.ticks = element_blank(),
-    panel.grid = element_blank(),
-    # legend
-    legend.title=element_blank(),
-    legend.position = "top",
-    legend.direction = "horizontal",
-    legend.box.spacing = unit(-20, "pt"),
-    legend.text = element_text(size = 12, family = "playfair"),
-    # title + caption
-    plot.title = element_markdown(size = 26, hjust = 0.5, 
-                                  family = "playfair",
-                                  face = "bold", margin = margin(t = 2)),
-    plot.subtitle = element_text(size = 13, hjust = 0.5, 
-                                 family = "playfair", color = "gray20", 
-                                margin = margin(t = 5)),
-    plot.caption = element_text(size = 10, family = "playfair", 
-                                margin = margin(t = 15), color = "gray45"),
-    plot.caption.position = "panel",
-  ) 
-# +
-#   coord_cartesian(expand = FALSE, clip = "off",
-#                   xlim = c(0.5, 18.5),
-#                   ylim = c(25.5, 0.5)
-#                   )
+p <- ggplot(plot_data, aes(fill = generation, values = count)) +
+    geom_waffle(n_rows = 100, size = 0.6, color = "white") +
+    facet_wrap(
+      ~election_year,
+      nrow = 1,
+      strip.position = "bottom",
+      scales = "free_x"
+    ) +
+    guides(fill = guide_legend(nrow = 1)) +
+    scale_fill_manual(values = colors) +
+    # labels and annotate
+    labs(
+      title = my_title,
+      subtitle = my_subtitle,
+      fill = "Generation",
+      y = "US Senators"
+    ) +
+    # theme stuff
+    theme_minimal(base_size = 12, base_family = myfont) +
+    theme_enhance_waffle() +
+    theme(
+      plot.margin = margin(0, 0, 0, 40),
+      # strip
+      panel.spacing = unit(0, "pt"),  # remove space between facets
+      strip.placement = "outside",
+      strip.switch.pad.grid = unit(-30, "pt"),  # remove padding around strips
+      strip.switch.pad.wrap = unit(-30, "pt"),
+      strip.text.x.bottom = element_text(size = 10, colour = "black", 
+                                         angle = 45, family = myfont, 
+                                         margin(-4, 0, 0, 0)),
+      # axes
+      axis.text.x = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid = element_blank(),
+      # legend
+      legend.title=element_blank(),
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.box.spacing = unit(-20, "pt"),
+      legend.text = element_text(size = 12, family = myfont),
+      # title + caption
+      plot.title = element_markdown(size = 26, hjust = 0.5, 
+                                    family = myfont,
+                                    face = "bold", margin = margin(t = 2)),
+      plot.subtitle = element_text(size = 13, hjust = 0.5, 
+                                   family = myfont, color = "gray20", 
+                                  margin = margin(t = 5)),
+      plot.caption = element_text(size = 10, family = myfont, 
+                                  margin = margin(t = 15), 
+                                  color = "gray45"),
+      axis.title.y =  element_text(size = 10),
+      plot.caption.position = "panel",
+    ) 
+  # +
+  #   coord_cartesian(expand = FALSE, clip = "off",
+  #                   xlim = c(0.5, 18.5),
+  #                   ylim = c(25.5, 0.5)
+  #                   )
 
 
-ggsave("waffle3.png", width = 11, height = 10, dpi = 400)
+ggsave("waffle4.png", 
+       plot = p,
+       width = 12, height = 10, dpi = 400,
+       bg = "white")
 ```
