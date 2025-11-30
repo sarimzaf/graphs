@@ -8,11 +8,15 @@ editor: visual
 
 ```{r, warning=FALSE include=FALSE}
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(DBI, RSQLite, dplyr, ggplot2, stringr, lubridate, readr, tidyr, ggrepel, ggimage, cowplot)
+pacman::p_load(DBI, RSQLite, dplyr, ggplot2, stringr, lubridate, readr, tidyr,
+               ggrepel, ggimage, cowplot, here, RCurl, rvest, janitor, magrittr, memoise, purr)
+
+here <- here()
 ```
 
 ```{r, warning=FALSE}
-con <- dbConnect(RSQLite::SQLite(), "C:/Users/sarim/Documents/Github/test/random/movies/movies.db")
+dbfile <- paste0(here, "/movies/movies.db")
+con <- dbConnect(RSQLite::SQLite(), dbfile)
 
 dbListTables(con)
 
@@ -27,26 +31,101 @@ people <- dbReadTable(con, "people") %>%
 stars <- dbReadTable(con, "stars")
 
 ratings <- dbReadTable(con, "ratings")
-```
 
-people \<- left_join(people, directors, by = "person_id", relationship = "many-to-many")
+people <- left_join(people, directors, by = "person_id", relationship = "many-to-many")
+```
 
 ```{r}
 
-# imdb <- full_join(ratings, movies, by = "movie_id")
+imdb <- full_join(ratings, movies, by = "movie_id") 
+
+imdb <- imdb %>% 
+  filter(votes >= 10000)
 # 
 # people <- left_join(people, stars, by = "person_id")
 # 
 # people <- left_join(people, directors, by = "person_id", relationship = "many-to-many")
 
-
-
-
 ```
 
 ```{r}
 
-rotten <- read.csv("C:/Users/sarim/Documents/Github/test/random/movies/movie_info.csv")
+name <- "The+Ballad+of+Cable+Hogue+movie"
+
+get_budget <- function(name) {
+  print(name)
+  ## Get player page link
+  url <- paste0("https://en.wikipedia.org/w/index.php?search=",
+                name, 
+                "&title=Special%3ASearch&ns0=1")
+  
+  # if (url.exists(url) == 0) {
+  #   warning(paste("No url found for", name))
+  #   return(NA)
+  # }
+  
+  page <- read_html(URLencode(url))
+  
+  links <- page %>% 
+    html_nodes(".mw-search-result-ns-0:nth-child(1) a") %>% 
+    html_attr('href')
+  
+  movie_link <- links[1]
+  
+  ## Get infobox
+  url <- paste0('https://en.wikipedia.org', movie_link)
+  
+  page <- read_html(URLencode(url))
+  
+  infobox <- page %>%
+    html_nodes(".infobox")
+  
+  # if (length(infobox) == 0) {
+  #   warning(paste("No infobox found for", name))
+  #   return(NA) # Return NA if still no infobox is found
+  # }
+  
+  # Extract the table from the infobox.
+  infobox_tables <- infobox %>%
+    html_table()
+  
+  # Check if any tables were extracted
+  # if (length(infobox_tables) == 0) {
+  #   warning(paste("No table found within infobox for", name))
+  #   return(NA)
+  # }
+  
+  infobox_df <- as.data.frame(infobox_tables)
+  
+  # Assuming the first table in the infobox_tables list is the one we want
+  
+  x <- c(infobox_tables[[1]][1], infobox_tables[[1]][2])
+  
+  infobox_df <- as.data.frame(setNames(x, c("Category", "Info")))
+  
+  # if (count(infobox_df) == 0) {
+  #   return(NA)
+  # }
+  
+  infobox_df <- infobox_df %>% 
+    filter(Category == "Budget") %>% 
+    select(Info)
+  
+  dob <- infobox_df$Info
+  
+  return(budget)
+}
+
+
+name <- "Dawn+of+the+Planet+of+the+Apes+movie"
+
+
+get_budget(name)
+```
+
+```{r}
+
+rotten <- read.csv(paste0(here, "/movies/movie_info.csv"))
 
 rotten <- rotten %>%
   filter(nchar(release_date) > 4) %>%
@@ -106,9 +185,8 @@ quarterly_rotten_long <- quarterly_rotten %>%
 ## Images
 
 ```{r}
-critic_img <- "C:/Users/sarim/Documents/Github/test/random/movies/tomato.png"
-
-audience_img <- "C:/Users/sarim/Documents/Github/test/random/movies/popcorn.png"
+critic_img <- paste0(here, "/movies/tomato.png")
+audience_img <- paste0(here, "/movies/popcorn.png")
 
 quarterly_rotten_long <- quarterly_rotten_long %>%
   mutate(
@@ -149,6 +227,11 @@ p1 <- ggplot(quarterly_rotten_long) +
     panel.grid.minor = element_blank()
   ) 
 
+filename <- "rotten_time"
+
+ggsave(paste0(here, "/movies/", filename, ".png"), 
+         plot = p1, width = 10, height = 8, dpi = 400, bg = "white")
+
 # +
 #   geom_text_repel(data = quarterly_rotten_long, 
 #                   aes(label_x_pos, average_score, label = label_text),
@@ -174,9 +257,21 @@ legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
   )
 
 legend_plot
+
+
+filename <- "legend_plot"
+
+ggsave(paste0(here, "/movies/", filename, ".png"), 
+         plot = legend_plot, width = 10, height = 8, dpi = 400, bg = "white")
 ```
 
 ```{r}
 x <- cowplot::plot_grid(p1, legend_plot, ncol = 2, rel_widths = c(4.5, 1))
 x
+
+
+filename <- "cowplot"
+
+ggsave(paste0(here, "/movies/", filename, ".png"), 
+         plot = x, width = 10, height = 8, dpi = 400, bg = "white")
 ```

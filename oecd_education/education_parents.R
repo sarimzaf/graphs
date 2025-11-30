@@ -2,7 +2,7 @@
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, showtext, rvest, stringr, lubridate, glue, magick, 
                RCurl, memoise, ggimage, extrafont, janitor, magrittr, urltools, 
-               scales, ggrepel, RColorBrewer, ggtext, here, forcats)
+               scales, ggrepel, RColorBrewer, ggtext, here, forcats, ggtext)
 
 sysfonts::font_add_google("Libre Franklin", "franklin")
 myfont <- "franklin"
@@ -107,13 +107,15 @@ ggplot(education_long,
            color = "gray60"
   ) +
   # # text for lines for top category
-  annotate(geom = 'text',
-           x = c(0+4, annot_x2+4, annot_x2+annot_x3+1.3),
+  annotate(geom = 'richtext',
+           x = c(0+4, annot_x2+4, annot_x2+annot_x3+1),
            y = c(num_rows+2.5, num_rows+2.5, num_rows+2.5),
-           label = c("**MORE**\n(upwardly\nmobile)", "**SAME**\n(status\nquo)",
-                     "**LESS**\n(downwardly\nmobile)"),
+           label = c("**MORE**<br>(upwardly<br>mobile)", 
+                     "**SAME**<br>(status<br>quo)",
+                     "**LESS**<br>(downwardly<br>mobile)"),
            size = 3.7,
-           family = myfont
+           family = myfont,
+           parse = TRUE
   ) +
   # coord
   coord_cartesian(ylim = c(0, num_rows+4),
